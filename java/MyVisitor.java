@@ -2,6 +2,7 @@
 import org.antlr.v4.runtime.tree.TerminalNode;
 import org.w3c.dom.*;
 import org.xml.sax.SAXException;
+import sun.awt.image.ImageWatched;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -536,6 +537,73 @@ public class MyVisitor extends HelloBaseVisitor<List<Context>> {
         putLetVariable((HelloParser.XqletclauseContext)ctx.letclause());  //put variables into map
         List<Context> res=visit(ctx.xq());
         removeLetVariable((HelloParser.XqletclauseContext)ctx.letclause());  //remove variables from map
+        return res;
+    }
+
+    public static String NodetoSting(Node node, int k){
+        if(node.getChildNodes().getLength()==0){
+            return node.getTextContent();
+        }
+        String temp="";
+        if(k!=0) temp+="<"+node.getNodeName()+">";
+        for(int i=0;i<node.getChildNodes().getLength();i++){
+            temp+=NodetoSting(node.getChildNodes().item(i), k+1);
+        }
+        if(k!=0) temp+="</"+node.getNodeName()+">";
+        return temp;
+    }
+
+    @Override
+    public List<Context> visitXqjoin(HelloParser.XqjoinContext ctx) {
+        List<Context> xq_result_1=visit(ctx.xq(0));  //first xquery result
+        List<Context> xq_result_2=visit(ctx.xq(1));  //second xquery result
+        List<TerminalNode> con_list_left=ctx.taglist().get(0).Letter();  //first condition list, correspond to second xquery result
+        List<TerminalNode> con_list_right=ctx.taglist().get(1).Letter();  //second condition list, correspond to first xquery result
+        Map<String, Context> find_corres_tag=new HashMap<>();
+        for(int i=0;i<xq_result_2.size();i++){
+            Context each_tuple=xq_result_2.get(i);  //get each tuple
+            String key="";
+            for(int j=0;j<each_tuple.getchildren().size();j++){
+                Context each_tag=each_tuple.getchildren().get(j);  //get each tag
+                for(int k=0;k<con_list_left.size();k++){
+                    if(each_tag.node.getNodeName().equals(con_list_left.get(k).getText())){
+                        key+=NodetoSting(each_tag.node,0)+",";  //convert tagnode to string
+                    }
+                }
+            }
+
+            find_corres_tag.put(key,each_tuple);  //store string-each_tuple pair
+        }
+        List<Context> res=new LinkedList<>();
+        for(int i=0;i<xq_result_1.size();i++){
+            Context each_tuple=xq_result_1.get(i);
+            String key="";
+            for(int j=0;j<each_tuple.getchildren().size();j++){
+                Context each_tag=each_tuple.getchildren().get(j);
+                for(int k=0;k<con_list_right.size();k++){
+                    if(each_tag.node.getNodeName().equals(con_list_right.get(k).getText())){
+                        key+=NodetoSting(each_tag.node,0)+",";
+                    }
+                }
+            }
+
+            if(find_corres_tag.containsKey(key)){  //hash check
+                Context tuple_2=find_corres_tag.get(key);
+                List<Node> combine=new LinkedList<>();
+                for(int n=0;n<tuple_2.getchildren().size();n++) combine.add(tuple_2.getchildren().get(n).node);
+                for(int n=0;n<each_tuple.getchildren().size();n++) combine.add(each_tuple.getchildren().get(n).node);
+                DocumentBuilderFactory factory= DocumentBuilderFactory.newInstance();
+                DocumentBuilder builder;
+                Document doc=null;
+                try {
+                    builder = factory.newDocumentBuilder();
+                    doc=(Document) builder.newDocument();
+                } catch (ParserConfigurationException e) {
+                    e.printStackTrace();
+                }
+                res.add(new Context(doc,combine));  //add new tuple to result list
+            }
+        }
         return res;
     }
 
