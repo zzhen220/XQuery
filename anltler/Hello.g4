@@ -11,6 +11,11 @@ xq
     | '<' Letter '>' '{' xq '}' '</' Letter '>' #xqtag
     | forclause letclause ? whereclause ? returnclause  #xqflower
     | letclause  xq #xqlet
+    | 'join(' xq ',' xq ',' taglist ',' taglist ')' #xqjoin
+    ;
+
+taglist
+    : '[' Letter (',' Letter)* ']'
     ;
 
 StringSentence
